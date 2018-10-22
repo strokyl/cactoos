@@ -28,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import org.cactoos.Scalar;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.core.IsEqual;
+import org.hamcrest.core.IsNot;
 import org.junit.Test;
 
 /**
@@ -66,6 +67,27 @@ public final class TextEnvelopeTest {
 
     /**
      * Test for {@link TextEnvelope#equals(Object)} method. Must assert
+     * that the envelope value is equal to itself without computing it's value.
+     */
+    @Test
+    public void testEqualsItself() {
+        final ScealedScalar<String> scalar = new ScealedScalar<>(
+            () -> "inside sealed scalar"
+        );
+        final TextEnvelope envelope = new TextEnvelopeDummy(scalar);
+        MatcherAssert.assertThat(
+            "Envelope should equal itself without computing it's input",
+            envelope,
+            new IsEqual<>(envelope)
+        );
+        MatcherAssert.assertThat(
+            "Scalar wrapped by text enveloppe should not have been evaluated",
+            scalar.sealed()
+        );
+    }
+
+    /**
+     * Test for {@link TextEnvelope#equals(Object)} method. Must assert
      * that the envelope value is equal another text representing the same
      * value (in this case a {@link JoinedText}).
      */
@@ -79,6 +101,38 @@ public final class TextEnvelopeTest {
             )
         );
     }
+
+    /**
+     * Test for {@link TextEnvelope#equals(Object)} method. Must assert
+     * that the envelope value is not equal another object not being a
+     * instance of Text without failing
+     */
+    @Test
+    public void testDoesNotEqualsNonTextObject() {
+        MatcherAssert.assertThat(
+            "Envelope does not match another object which is not a string",
+            new TextEnvelopeDummy("is not equals to null"),
+            new IsNot<>(
+                new IsEqual<>(new Object())
+            )
+        );
+    }
+
+    /**
+     * Test for {@link TextEnvelope#equals(Object)} method. Must assert
+     * that the envelope value is not equal to null without failing
+     */
+    @Test
+    @SuppressWarnings("PMD.EqualsNull")
+    public void testDoesNotEqualsFalse() {
+        final TextEnvelope envelope =
+            new TextEnvelopeDummy("is not equals to not Text object");
+        MatcherAssert.assertThat(
+            "Envelope does not equals null",
+            !envelope.equals(null)
+        );
+    }
+
     /**
      * Test for {@link TextEnvelope#hashCode()} method. Must assert that
      * the {@link TextEnvelope} hashCode is equals to the hashCode of
@@ -125,6 +179,47 @@ public final class TextEnvelopeTest {
         TextEnvelopeDummy(final String input,
             final Charset cset) {
             this(() -> new String(input.getBytes(cset), cset));
+        }
+    }
+
+    /**
+     * Decorator for {@link Scalar} allowing to seal them.
+     * @param <T> Type of result
+     */
+    private final class ScealedScalar<T> implements Scalar<T> {
+        /**
+         * Decorated scalar.
+         */
+        private final Scalar<T> scalar;
+
+        /**
+         * Seal.
+         */
+        private boolean seal;
+
+        /**
+         * Ctor.
+         *
+         * @param scalar Scalar to be sealed.
+         */
+        ScealedScalar(final Scalar<T> scalar) {
+            this.scalar = scalar;
+            this.seal = true;
+        }
+
+        /**
+         * Let you know if the scalar is still sealed.
+         *
+         * @return True if scalar has never been evaluated
+         */
+        public boolean sealed() {
+            return this.seal;
+        }
+
+        @Override
+        public T value() throws Exception {
+            this.seal = false;
+            return this.scalar.value();
         }
     }
 }
